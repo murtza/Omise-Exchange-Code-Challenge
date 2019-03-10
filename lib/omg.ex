@@ -1,22 +1,24 @@
 defmodule Omg do
-  
   alias Decimal, as: D
 
   def run(path \\ "./lib/input.json") do
-    json = path
-    |> Path.expand()
-    |> File.read!()
-    |> Jason.decode!()
-    |> Map.get("orders")
-    |> Enum.map(&convert_keys_vals(&1))
-    |> process_orders()
-    # |> IO.inspect()
-    |> Jason.encode!()
+    json =
+      path
+      |> Path.expand()
+      |> File.read!()
+      |> Jason.decode!()
+      |> Map.get("orders")
+      |> Enum.map(&convert_keys_vals(&1))
+      |> process_orders()
+      # |> IO.inspect()
+      |> Jason.encode!()
 
     case File.write(Path.expand("./lib/output.json"), json) do
-      :ok -> IO.puts "File written!"
-      {:error, err} -> 
-        IO.inspect err
+      :ok ->
+        IO.puts("File written!")
+
+      {:error, err} ->
+        IO.inspect(err)
     end
   end
 
@@ -32,9 +34,10 @@ defmodule Omg do
   defp convert_vals_to_floats(map) do
     map
     |> Enum.map(fn {k, v} ->
-      v = v 
-          |> Decimal.to_string 
-          |> String.to_float()
+      v =
+        v
+        |> Decimal.to_string()
+        |> String.to_float()
 
       {k, v}
     end)
@@ -42,10 +45,12 @@ defmodule Omg do
   end
 
   defp process_orders(list, buy \\ [], sell \\ [])
+
   defp process_orders([], buy, sell) do
     {buy, sell} = sort(buy, sell)
     buy = buy |> Enum.map(&convert_vals_to_floats(&1))
     sell = sell |> Enum.map(&convert_vals_to_floats(&1))
+
     %{
       buy: buy,
       sell: sell
@@ -68,12 +73,13 @@ defmodule Omg do
 
       command ->
         IO.inspect("Error: command does not match")
-        IO.inspect command
+        IO.inspect(command)
         process_orders(tail, buy, sell)
     end
   end
 
   defp add_to_list(nil, list), do: {:ok, list}
+
   defp add_to_list(remainder, list) do
     case is_price_exist_in_list(remainder, list) do
       nil ->
@@ -102,11 +108,12 @@ defmodule Omg do
   defp subtract_from_entry(entry, command) do
     volume = D.sub(entry[:volume], command[:amount])
     entry = Map.put(entry, :volume, volume)
-    
+
     {:ok, entry, nil}
   end
 
   defp subtract_from_list(command, []), do: {:ok, command, []}
+
   defp subtract_from_list(command, [entry | tail]) do
     case price_matched?(command, entry) do
       true ->
@@ -115,32 +122,39 @@ defmodule Omg do
             case D.cmp(command[:amount], entry[:volume]) do
               :eq ->
                 {:ok, command, [entry | tail]}
+
               :lt ->
                 {:ok, command, [entry | tail]}
+
               :gt ->
                 case command do
                   %{command: "buy"} ->
                     new_volume = D.sub(command[:amount], entry[:volume])
                     new_command = Map.put(command, :amount, new_volume)
                     {:ok, new_command, tail}
+
                   _ ->
                     {:ok, command, [entry | tail]}
                 end
             end
+
           _ ->
             case D.cmp(command[:amount], entry[:volume]) do
               :eq ->
                 {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
                 {:ok, new_command, [new_entry | tail]}
+
               :lt ->
                 {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
                 {:ok, new_command, [new_entry | tail]}
+
               :gt ->
                 new_amount = D.sub(command[:amount], entry[:volume])
                 new_command = Map.put(command, :amount, new_amount)
                 subtract_from_list(new_command, tail)
             end
         end
+
       false ->
         {:ok, command, [entry | tail]}
     end
@@ -150,7 +164,7 @@ defmodule Omg do
     command_price = to_int(command[:price])
     entry_price = to_int(entry[:price])
 
-    command_price == entry_price    
+    command_price == entry_price
   end
 
   defp to_int(dec) do
@@ -159,7 +173,7 @@ defmodule Omg do
     |> Integer.parse()
     |> elem(0)
   end
-  
+
   defp sort(buy, sell) do
     buy =
       buy
@@ -181,7 +195,4 @@ defmodule Omg do
       end
     end)
   end
-
-   
-
 end
