@@ -1,3 +1,10 @@
+# How to Run
+ 
+ * Open terminal & run `iex -S mix`
+ * Run `Omg.run` will process `input.json` and save as `./lib/output.json` 
+ * `Omg.run(FILE_PATH)` will process file and save as `./lib/output.json`
+
+-------------------
 # Omise Exchange Code Challenges
 
 This repository houses Omise Exchange's interviewing code challenges. These are small hands-on
