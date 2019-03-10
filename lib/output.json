@@ -1,1 +1,1 @@
-{"buy":[{"price":"100.01","volume":"1.6"},{"price":"91.33","volume":"1.8"},{"price":"90.15","volume":"0.150"},{"price":"89.394","volume":"4.3"}],"sell":[{"price":"100.013","volume":"2.2"},{"price":"100.15","volume":"3.8"}]}
+{"buy":[{"price":100.01,"volume":1.6},{"price":91.33,"volume":1.8},{"price":90.15,"volume":0.15},{"price":89.394,"volume":4.3}],"sell":[{"price":100.013,"volume":2.2},{"price":100.15,"volume":3.8}]}

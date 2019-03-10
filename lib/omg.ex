@@ -1,39 +1,8 @@
 defmodule Omg do
-  @moduledoc """
-  Documentation for Omg.
-  """
-
-  @input """
-  {
-    "orders": [
-       {"command": "sell", "price": 100.003, "amount": 2.4},
-       {"command": "buy", "price": 90.394, "amount": 3.445},
-       {"command": "buy", "price": 89.394, "amount": 4.3},
-       {"command": "sell", "price": 100.013, "amount": 2.2},
-       {"command": "buy", "price": 90.15, "amount": 1.305},
-       {"command": "buy", "price": 90.394, "amount": 1.0},
-       {"command": "sell", "price": 90.394, "amount": 2.2},
-       {"command": "sell", "price": 90.15, "amount": 3.4},
-       {"command": "buy", "price": 91.33, "amount": 1.8},
-       {"command": "buy", "price": 100.01, "amount": 4.0},
-       {"command": "sell", "price": 100.15, "amount": 3.8}
-    ]
-  }
-  """
-
+  
   alias Decimal, as: D
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Omg.hello()
-      :world
-
-  """
   def run(path \\ "./lib/input.json") do
-    # @input
     json = path
     |> Path.expand()
     |> File.read!()
@@ -41,12 +10,12 @@ defmodule Omg do
     |> Map.get("orders")
     |> Enum.map(&convert_keys_vals(&1))
     |> process_orders()
+    # |> IO.inspect()
     |> Jason.encode!()
 
     case File.write(Path.expand("./lib/output.json"), json) do
       :ok -> IO.puts "File written!"
       {:error, err} -> 
-        IO.puts "File not written!"
         IO.inspect err
     end
   end
@@ -60,10 +29,23 @@ defmodule Omg do
     |> Enum.into(%{})
   end
 
-  defp process_orders(list, buy \\ [], sell \\ [])
+  defp convert_vals_to_floats(map) do
+    map
+    |> Enum.map(fn {k, v} ->
+      v = v 
+          |> Decimal.to_string 
+          |> String.to_float()
 
+      {k, v}
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp process_orders(list, buy \\ [], sell \\ [])
   defp process_orders([], buy, sell) do
     {buy, sell} = sort(buy, sell)
+    buy = buy |> Enum.map(&convert_vals_to_floats(&1))
+    sell = sell |> Enum.map(&convert_vals_to_floats(&1))
     %{
       buy: buy,
       sell: sell
@@ -75,17 +57,19 @@ defmodule Omg do
 
     case command do
       %{command: "sell"} ->
-        {:ok, remainder, new_buy} = subtract_from_buy(command, buy)
+        {:ok, remainder, new_buy} = subtract_from_list(command, buy)
         {:ok, new_sell} = add_to_list(remainder, sell)
         process_orders(tail, new_buy, new_sell)
 
       %{command: "buy"} ->
-        {:ok, remainder, new_sell} = subtract_from_sell(command, sell)
+        {:ok, remainder, new_sell} = subtract_from_list(command, sell)
         {:ok, new_buy} = add_to_list(remainder, buy)
         process_orders(tail, new_buy, new_sell)
 
-      _ ->
-        IO.inspect("N/A")
+      command ->
+        IO.inspect("Error: command does not match")
+        IO.inspect command
+        process_orders(tail, buy, sell)
     end
   end
 
@@ -122,82 +106,39 @@ defmodule Omg do
     {:ok, entry, nil}
   end
 
-  defp subtract_from_buy(command, []), do: {:ok, command, []}
-  defp subtract_from_buy(command, [entry | tail]) do
+  defp subtract_from_list(command, []), do: {:ok, command, []}
+  defp subtract_from_list(command, [entry | tail]) do
     case price_matched?(command, entry) do
       true ->
         case D.cmp(command[:price], entry[:price]) do
           :gt ->
-            IO.inspect "Buy: ++++++++++"
-            IO.inspect command
-            IO.inspect entry
             case D.cmp(command[:amount], entry[:volume]) do
               :eq ->
                 {:ok, command, [entry | tail]}
               :lt ->
                 {:ok, command, [entry | tail]}
               :gt ->
-                # new_volume = D.sub(command[:amount], entry[:volume])
-                # new_command = Map.put(command, :amount, new_volume)
-                # {:ok, new_command, tail}
-                {:ok, command, [entry | tail]}
+                case command do
+                  %{command: "buy"} ->
+                    new_volume = D.sub(command[:amount], entry[:volume])
+                    new_command = Map.put(command, :amount, new_volume)
+                    {:ok, new_command, tail}
+                  _ ->
+                    {:ok, command, [entry | tail]}
+                end
             end
           _ ->
             case D.cmp(command[:amount], entry[:volume]) do
               :eq ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :eq entry[:volume]: #{entry[:volume]}"
                 {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
                 {:ok, new_command, [new_entry | tail]}
               :lt ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :lt entry[:volume]: #{entry[:volume]}"
                 {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
                 {:ok, new_command, [new_entry | tail]}
               :gt ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :gt entry[:volume]: #{entry[:volume]}"
                 new_amount = D.sub(command[:amount], entry[:volume])
                 new_command = Map.put(command, :amount, new_amount)
-                subtract_from_buy(new_command, tail)
-            end
-        end
-      false ->
-        {:ok, command, [entry | tail]}
-    end
-  end
-
-  defp subtract_from_sell(command, []), do: {:ok, command, []}
-  defp subtract_from_sell(command, [entry | tail]) do
-    case price_matched?(command, entry) do
-      true ->
-        case D.cmp(command[:price], entry[:price]) do
-          :gt ->
-            IO.inspect "Sell: ++++++++++"
-            IO.inspect command
-            IO.inspect entry
-            case D.cmp(command[:amount], entry[:volume]) do
-              :eq ->
-                {:ok, command, [entry | tail]}
-              :lt ->
-                {:ok, command, [entry | tail]}
-              :gt ->
-                new_volume = D.sub(command[:amount], entry[:volume])
-                new_command = Map.put(command, :amount, new_volume)
-                {:ok, new_command, tail}
-            end
-          _ ->
-            case D.cmp(command[:amount], entry[:volume]) do
-              :eq ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :eq entry[:volume]: #{entry[:volume]}"
-                {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
-                {:ok, new_command, [new_entry | tail]}
-              :lt ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :lt entry[:volume]: #{entry[:volume]}"
-                {:ok, new_entry, new_command} = subtract_from_entry(entry, command)
-                {:ok, new_command, [new_entry | tail]}
-              :gt ->
-                # IO.inspect "command[:amount]: #{command[:amount]} :gt entry[:volume]: #{entry[:volume]}"
-                new_amount = D.sub(command[:amount], entry[:volume])
-                new_command = Map.put(command, :amount, new_amount)
-                subtract_from_sell(new_command, tail)
+                subtract_from_list(new_command, tail)
             end
         end
       false ->
